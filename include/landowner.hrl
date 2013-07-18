@@ -1,0 +1,1 @@
+-define(LOG(A, B), io:format(A, B)).
