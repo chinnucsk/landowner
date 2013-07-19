@@ -1,5 +1,5 @@
 
-document.write('<script type="text/javascript" src="./check.js"></script>');
+//document.write('<script type="text/javascript" src="./check.js"></script>');
 
 var conn = new WebSocket('ws://localhost:8001/wsocket');
 
@@ -11,13 +11,7 @@ function OpenConnection()
 {
 	conn.onopen = function(event)
 	{
-		document.getElementById("notice1").value="connecting to server ...";
-	};
-
-	conn.send("123");
-	conn.onmessage = function(event)
-	{
-		document.getElementById("notic1").value=event.data;	
+		document.getElementById("notice1").value="connecting to server ... ...";
 	};
 
 	conn.onclose = function(event)
@@ -34,14 +28,12 @@ function connect()
 
 	conn.onmessage = function(event)
 	{
-		alert("123");
-		document.getElementById("notic1").value=event.data;	
+		alert(event.data);
+		document.getElementById("notice1").value=event.data;	
 	};
 }
 
 OpenConnection();
-
-connect();
 
 function click_pic(V)
 {
