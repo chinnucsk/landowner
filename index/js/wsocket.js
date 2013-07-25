@@ -1,25 +1,28 @@
 
-//document.write('<script type="text/javascript" src="./check.js"></script>');
+document.write('<script type="text/javascript" src="../js/check.js"></script>');
 
 var conn = new WebSocket('ws://localhost:8001/wsocket');
 
 var sum = new Array();
 
+var player_id = 0;
+
 var total = new Array();
+
+var senty = "farmer";
 
 function OpenConnection()
 {
 	conn.onopen = function(event)
 	{
-		document.getElementById("notice1").value="connecting to server ... ...";
+		document.getElementById("notice1").innerHTML="connecting to server ... ...";
 	};
 
 	conn.onclose = function(event)
 	{
 		alert("wsocket close");
+		conn.close();
 	};
-
-//	conn.close();
 };
 
 function connect()
@@ -28,8 +31,22 @@ function connect()
 
 	conn.onmessage = function(event)
 	{
-		alert(event.data);
-		document.getElementById("notice1").value=event.data;	
+		parse_connection(event.data);
+		conn.send("CONNECT AS "+ player_id);
+		conn.onmessage = function(event)
+		{
+			parse_match(event.data);
+			first_init();
+		}
+	};
+}
+
+function first_init()
+{
+	conn.send("FIRST_INIT "+ player_id);
+	conn.onmessage = function(event)
+	{
+		parse_init(event.data);
 	};
 }
 
@@ -37,24 +54,22 @@ OpenConnection();
 
 function click_pic(V)
 {
-    var id = "d" + String(V);
-    var pid = "p" + String(V);
-    value = document.getElementById(id).className;
+	var value = V.className;
     if(value == "pic")
         value = "pic-top";
     else
         value = "pic";
-    document.getElementById(id).className=value;
-	var p_value = get_value(pid);
+    V.className=value;
+	var p_value = get_value(V.toString());
 	total.push(p_value);
 };
 
-function get_value(pid)
+function get_value(V)
 {
-	var pic = document.getElementById(pid).src;
-	var name = pic.substring(pic.lastIndexOf("/")+1);
-	return name.substring(0,name.lastIndexOf("."));
-}
+	var  value = parseInt(V);
+	alert("value "+value);
+	return value;
+};
 
 function handle()
 {

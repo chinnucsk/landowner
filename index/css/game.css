@@ -59,7 +59,7 @@ body{
 }
 
 .photo1{
-	width:250px;
+	width:246px;
 	height:200px;
 	border:blue solid thin;
 }
@@ -89,7 +89,7 @@ body{
 	border:black solid thin;
 	position: relative;
 	left:251px;
-	top:-52px;
+	top:-244px;
 }
 
 .pic{
