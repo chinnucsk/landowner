@@ -66,9 +66,7 @@ function click_pic(V)
 
 function get_value(V)
 {
-	alert("valuev "+V.substring(1));
 	var  value = parseInt(V.substring(1));
-	alert("value "+value);
 	return value;
 };
 
