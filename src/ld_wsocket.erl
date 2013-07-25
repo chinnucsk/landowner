@@ -27,39 +27,50 @@ terminate(_Reason, _Req, _State) ->
 %% --------------------------------------------------------------------------
 
 websocket_init(_Any, Req, []) ->
+	?LOG("init over ~w~n",[self()]),
     {ok, Req, #state{player_pid=none}}.
 
 websocket_handle({text, <<"CONNECT">>}, Req, #state{player_pid=none}=State) ->
 	?LOG("process connect message ~n", []),
 	case s_account:new_player() of
 		{ok, Pid, <<PlayerId:36/binary>>} when is_pid(Pid) ->
-			reply(<<"WELCOME ", PlayerId/binary>>, Req, State#state{player_pid=PlayerId});
+			reply(<<"WELCOME ", PlayerId/binary>>, Req, State#state{player_pid=Pid});
 		R ->
 			?LOG("Bad reply ~w", [R]),
 			reply(<<"INTERNAL_ERROR">>, Req, State)
 	end;
-websocket_handle({text, <<"LUCASCONNECT AS ", PlayerId:36/binary>>}, Req, #state{player_pid=none} = State) ->
-    ?LOG("Processing CONNECT AS message", []),
-    case c4_player_master:connect(PlayerId) of
-        {ok, Pid, <<NewPlayerId:36/binary>>} when is_pid(Pid) ->
-            ?LOG("New player id = ~s", [NewPlayerId]),
-            reply(<<"WELCOME ", NewPlayerId/binary>>, Req, State#state{player_pid=Pid});
-        _ ->
-            reply(<<"INTERNAL_ERROR">>, Req, State)
-    end;
-websocket_handle({text, Data}, Req, #state{player_pid=Pid}=State) when is_pid(Pid) ->
+websocket_handle({text, <<"CONNECT AS ", PlayerId:36/binary>>}, Req, State) ->
+    ?LOG("Processing CONNECT AS message ~p~n", [PlayerId]),
+    s_account:do_register(self(), PlayerId),
+	receive
+		{match, P1, P2, P3} ->
+			[R1,R2] = remove_self([P1,P2,P3],PlayerId,[]),
+			Cmd = protocol_package:package(match, {R1, R2})
+	end,
+	reply(Cmd, Req, State);
+websocket_handle({text, Data}, Req, #state{player_pid=Pid}=State) when is_pid(Pid) -> 
 	?LOG("receive data ~p~n", [Data]),
-	reply(Data, Req, State);
+	Res1 = protocol_package:txt_cmd(Data),
+	Res = protocol_package:package(Res1),
+	reply(Res, Req, State);
 websocket_handle({text, Msg}, Req, State) ->
-    ?LOG("Unexpected message ~w with state ~w", [Msg, State]),
+    ?LOG("Unexpected message ~w with state ~w ~n", [Msg, State]),
 	{reply, {text, Msg}, Req, State }.
 
 reply(Msg, Req, State) ->
-    ?LOG("Sending message ~s", [Msg]),
+    ?LOG("Sending message ~s~n", [Msg]),
     {reply, {text, Msg}, Req, State}.
 
 websocket_info(shutdown, Req, State) ->
+	?LOG("shutdown ~n",[]),
     {shutdown, Req, State}.
 
-websocket_terminate(_Reason, _Req, _State) ->
+websocket_terminate(Reason, _Req, _State) ->
+	?LOG("websocket terminate ~p~n",[Reason]),
     ok.
+remove_self([],_,Acc) ->
+	lists:reverse(Acc);
+remove_self([A|Rest],PlayerId,Acc) when A =/= PlayerId ->
+	remove_self(Rest,PlayerId,[A|Acc]);
+remove_self([_A|Rest],PlayerId,Acc) ->
+	remove_self(Rest,PlayerId,Acc).

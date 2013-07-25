@@ -24,7 +24,7 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-	Procs = procs([], []),
+	Procs = procs([s_account,s_game_server], []),
     {ok, { {one_for_one, 5, 10}, Procs} }.
 
 -spec procs([module()|{sup, module()}], [supervisor:child_spec()])
