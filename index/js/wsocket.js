@@ -60,13 +60,14 @@ function click_pic(V)
     else
         value = "pic";
     V.className=value;
-	var p_value = get_value(V.toString());
+	var p_value = get_value(V.id);
 	total.push(p_value);
 };
 
 function get_value(V)
 {
-	var  value = parseInt(V);
+	alert("valuev "+V.substring(1));
+	var  value = parseInt(V.substring(1));
 	alert("value "+value);
 	return value;
 };
