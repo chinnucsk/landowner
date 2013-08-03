@@ -5,7 +5,8 @@
 		start_link/0,
 		new_player/0,
 		do_register/2,
-		find_pid/1
+		find_pid/1,
+		find_wpid/1
 		]).
 
 -export([
@@ -35,6 +36,9 @@ do_register(Wid, PlayerId) ->
 find_pid(Pid) ->
 	gen_server:call(?MODULE, {find_pid, Pid}).
 
+find_wpid(Pid) ->
+	gen_server:call(?MODULE, {find_wpid, Pid}).
+
 %%% =================================================================
 %%% internal
 %%% =================================================================
@@ -44,6 +48,7 @@ init(ParentId) ->
 	ets:new(landowner_player_id_tbl, [named_table, public, set]),
 	ets:new(landowner_player_pid_tbl, [named_table, public, set]),
 	ets:new(landowner_player_notify_tbl, [named_table, public, set]),
+	ets:new(landowner_player_wsocket_tbl, [named_table, public, set]),
 	erlang:send_after(?TIME, self(), notify),
 	{ok, #state{parent=ParentId}}.
 
@@ -56,12 +61,15 @@ terminate(_Reason, _State) ->
 handle_call(new_player, From, State) ->
 	?LOG("new player ~n", []),
 	new_player(From, State);
-handle_call({register, Wid, PlayerId}, From, State) ->
+handle_call({register, Wid, PlayerId}, _From, State) ->
 	io:format("register ~p~p~n",[PlayerId,Wid]),
 	do_register_player({PlayerId, Wid}),
 	{reply, ok, State};
-handle_call({find_pid, Playerid}, From ,State) ->
+handle_call({find_pid, Playerid}, _From ,State) ->
 	[{_,Id}] = ets:lookup(landowner_player_id_tbl, Playerid),
+	{reply, {ok, Id},State};
+handle_call({find_wpid, Playerid}, _From ,State) ->
+	[{_,Id}] = ets:lookup(landowner_player_wsocket_tbl, Playerid),
 	{reply, {ok, Id},State}.
 
 handle_info(notify, State) ->
@@ -87,6 +95,7 @@ handle_info({'EXIT', Pid, _Reason}, State) when is_pid(Pid) ->
 		[{Pid, PlayerId}] ->
 			ets:delete(landowner_player_pid_tbl, Pid),
 			ets:delete(landowner_player_id_tbl, PlayerId),
+			ets:delete(landowner_player_wsocket_tbl, PlayerId),
 			{noreply, State}
 	end;
 handle_info({'DOWN', _Ref, process, Pid, _Reason}, State) ->
@@ -115,6 +124,7 @@ new_player({ParentPid, _Tag} = _From, State) ->
 	?LOG("start new player ~w~n",[Pid]),
 	ets:insert(landowner_player_id_tbl, {PlayerId, Pid}),
 	ets:insert(landowner_player_pid_tbl, {Pid, PlayerId}),
+	ets:insert(landowner_player_wsocket_tbl, {PlayerId, ParentPid}),
 	{reply, {ok, Pid, PlayerId}, State}.
 
 do_register_player(Value) ->

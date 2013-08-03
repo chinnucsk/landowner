@@ -8,7 +8,9 @@
 		get_senty/2,
 		get_total/1,
 		get_rest/1,
-		add_landowner_puke/2
+		add_landowner_puke/2,
+		set_send_pukes/3,
+		get_other_turn_pukes/1
 		]).
 
 -export([
@@ -20,12 +22,13 @@
 		code_change/3
 		]).
 
--define(TIME, 3).
+-define(TIME, 1000).
+-define(TIMEOUT, infinity).
 
 -include("landowner.hrl").
 
 start_link() ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [], [{timeout,?TIMEOUT}]).
 
 first_init(Pid, Players, PlayerId) ->
 	gen_server:call(Pid, {first_init,Players,PlayerId}).
@@ -44,6 +47,13 @@ get_total(Pid) ->
 
 get_rest(Pid) ->
 	gen_server:call(Pid, get_rest).
+
+set_send_pukes(Pid,Pukes,PlayerId) ->
+	gen_server:call(Pid, {send_pukes, Pukes, PlayerId}).
+
+get_other_turn_pukes(Pid) ->
+	gen_server:call(Pid, get_pukes).
+
 %%% =================================================================
 %%% internal
 %%% =================================================================
@@ -60,7 +70,7 @@ handle_call({first_init, {P1,P2,P3},PlayerId}, _From, State) ->
 	{Puke, State1} = get_puke(P1,P2,P3,PlayerId,State),	
 	{Senty, State2} = get_senty(P1,P2,P3,State1),
 	State3 = set_farmer_seq(Senty, State2),
-	{reply, {ok,Puke,Senty}, State3};
+	{reply, {ok,Puke,Senty,State3#gameinfo.farmer_seq}, State3};
 handle_call({get_senty, PlayerId}, _From ,#gameinfo{senty=Senty} = State) ->
 	Val = proplists:get_value(PlayerId,Senty),
 	{reply, {ok, Val},State};
@@ -70,6 +80,33 @@ handle_call({add_landowner_puke,PlayerId}, _From ,#gameinfo{total=Total,player_p
     TPukes = proplists:delete(PlayerId, PlayerP),
     TPukes1 = TPukes ++ [{PlayerId,Pukes1}],
 	{reply,{ok,TPukes1},State#gameinfo{player_p=TPukes1}};
+handle_call({send_pukes,Pukes,PlayerId},_From,#gameinfo{total=Total,player_p=PlayerP,rest=Rest,total_num=TotalNum}=State) ->
+	{NewTotal,N} = decrease_total_pukes(Total,Pukes,0),
+	NowPukesPlayer = proplists:get_value(PlayerId,PlayerP),
+	{NewPlayerP,_} = decrease_total_pukes(NowPukesPlayer, Pukes, 0),
+	AtomPukes = atom_pukes(Pukes,[]),
+	NewRest = lists:append(AtomPukes,Rest),
+	State1 = State#gameinfo{total=NewTotal,player_p=NewPlayerP,total_num=TotalNum-N,rest=NewRest,last_p=AtomPukes},
+	Players  = s_game_server:find_playerid(self()),
+	{PS1,PS2} = get_other_player_wsocket(PlayerId,Players),
+	io:format("s_game wsocket id ~p~p~n",[PS1,PS2]),
+	PS1 ! {send_pukes, Pukes},
+	PS2 ! {send_pukes, Pukes},
+	{reply, ok, State1};
+handle_call(get_pukes, _From, #gameinfo{last_p=LastP,sync=Sync} = State)->
+	{Res,State2} = case LastP of
+		[] ->
+			{failed,State};
+		_ ->
+			 case Sync of
+				false ->
+					io:format("game server handle info lastap~p~n",[LastP]),
+					{LastP,State};
+				true ->
+					{LastP,State#gameinfo{last_p=[],sync=false}}
+			end
+		end,
+	{reply, {ok, Res},State2};
 handle_call(get_total, _From ,#gameinfo{total=Total}=State) ->
 	{reply, {ok, Total},State};
 handle_call(get_rest, _From ,#gameinfo{rest=Rest}=State) ->
@@ -153,3 +190,27 @@ get_farmer([{_,<<"landowner">>}|Rest],Acc) ->
 get_farmer([{_,_}|_Rest],_Acc) ->
 	?LOG1("Get Farmer error ~n").
 
+decrease_total_pukes(Total, [], N) ->
+	{Total, N};
+decrease_total_pukes(Total, [A|Rest], N) ->
+	Total1 = lists:delete(list_to_atom(A),Total),
+	decrease_total_pukes(Total1, Rest, N+1).
+
+atom_pukes([], Acc) ->
+	lists:reverse(Acc);
+atom_pukes([A|Rest], Acc) ->
+	atom_pukes(Rest, [list_to_atom(A)|Acc]).
+
+get_other_player_wsocket(PlayerId,{Player1,Player2,Player3}) ->
+	[P1,P2] = get_other_player(PlayerId,[Player1,Player2,Player3],[]),
+	io:format("get other player wsocket ~p~p~p~p~p~p",[PlayerId, Player1,Player2,Player3,P1,P2]),
+	{ok,PS1} = s_account:find_wpid(P1),
+	{ok,PS2} = s_account:find_wpid(P2),
+	{PS1,PS2}.
+
+get_other_player(_PlayerId, [], Acc) ->
+	lists:reverse(Acc);
+get_other_player(PlayerId, [A|Rest], Acc) when PlayerId == A ->
+	get_other_player(PlayerId, Rest, Acc );
+get_other_player(PlayerId, [A|Rest], Acc) ->
+	get_other_player(PlayerId, Rest, [A|Acc]).

@@ -1,6 +1,6 @@
 function check(total)
 {
-
+	return 0;
 }
 
 function parse_connection(msg)
@@ -35,12 +35,53 @@ function parse_init(msg)
 	{
 		var player_id1 = msg.substring(9,45);
 		var player_id2 = msg.substring(45,81);
-		var player_id3 = msg.substring(81,117);
-		var pukes = msg.substring(117);
-		alert(player_id1);
-		alert(player_id2);
-		alert(player_id3);
-		alert("111"+pukes);
+		var pos1 = msg.substring(81,82);
+		var player_id3 = msg.substring(82,118);
+		var pos2 = msg.substring(118,119);
+		var pukes = msg.substring(119);
+		if (player_id == player_id1) 
+			{
+				if(pos1 == "1") 
+				{
+				document.getElementById("info2").innerHTML=player_id3;
+				document.getElementById("info3").innerHTML=player_id2;
+				}
+				else
+				{
+				document.getElementById("info2").innerHTML=player_id2;
+				document.getElementById("info3").innerHTML=player_id3;
+				}
+			}
+		else if (player_id == player_id2)
+		{
+			if (pos1 == "1")
+			{
+				seq = 1;
+				document.getElementById("info2").innerHTML=player_id1;
+				document.getElementById("info3").innerHTML=player_id3;
+			}
+			else
+			{
+				seq = 2;
+				document.getElementById("info2").innerHTML=player_id3;
+				document.getElementById("info3").innerHTML=player_id1;
+			}
+		}
+		else if (player_id == player_id3)
+		{
+			if (pos1 == "1")
+			{
+				seq = 2;
+				document.getElementById("info2").innerHTML=player_id1;
+				document.getElementById("info3").innerHTML=player_id2;
+			}
+			else
+			{
+				seq = 1;
+				document.getElementById("info2").innerHTML=player_id2;
+				document.getElementById("info3").innerHTML=player_id1;
+			}
+		};
 		set_photo(player_id1);
 		set_senty(player_id1);
 		set_pukes(pukes);
@@ -50,6 +91,35 @@ function parse_init(msg)
 		alert("init error");
 	}
 }
+
+function parse_send_pukes(msg)
+{
+	if (msg == "SEND_PUKES ok")	
+		return "ok";
+	else 
+		return "error";
+}
+
+function parse_receive(msg)
+{
+	if (msg == "")
+	{
+		var pukes = "null" 	
+	}
+	else
+	{
+		if (msg.substr(0,7) == "RECEIVE")
+		{
+			var pukes = msg.substring(8);
+		}
+		else
+		{
+			alert("parse receive error");	
+		}
+	}
+	return pukes;
+}
+
 
 function set_photo(player_id1)
 {
@@ -79,12 +149,14 @@ function set_senty(player_id1)
 function set_pukes(pukes)
 {
 	var puke_list = pukes.split(",");
-	alert(puke_list[0]);
 	var html = "";
 	for (var i=0; i<puke_list.length;i++)
 	{
 			html=html + "<div id=\"" + puke_list[i] + "\" class=\"pic\"><img src=\"../pic/" + puke_list[i] + ".jpg\" onclick=\"click_pic(" + puke_list[i] + ")\" /></div>";
 	};
-	alert(html);
 	document.getElementById("div_b_r").innerHTML = html;
+	for (var j=0; j<puke_list.length;j++)
+	{
+		sum.push(puke_list[j]);	
+	}
 }

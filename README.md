@@ -17,6 +17,15 @@ Landowner aims to the following:
 * Stable, fast online server.
 * The big online erlang landowner game.
 
+Configure
+--------
+
+If you want to define port or some other property, you can modify /priv/app.config.
+
+If you want to defint the path of url, you can modify /priv/dispatch.script.
+
+The file /include/landowner.hrl define the gameinfo, playerinfo record.
+
 Getting Started
 --------
 

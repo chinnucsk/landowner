@@ -10,15 +10,38 @@
 txt_cmd(<<"FIRST_INIT ", PlayerId:36/binary>>)->
 	{ok, Pid} = s_account:find_pid(PlayerId),
 	Gid = s_game_server:find_gameid(PlayerId),
-	{ok, {Senty, Pukes}} = s_player:first_init(Pid,Gid,PlayerId),
-	{first_init,{Senty,Pukes}}.
+	{ok, {Senty, Pukes,Seq}} = s_player:first_init(Pid,Gid,PlayerId),
+	{first_init,{Senty,Pukes,Seq}};
+txt_cmd(<<"SEND_PUKES ",PlayerId:36/binary, Pukes/binary>>) ->
+	{ok, Pid} = s_account:find_pid(PlayerId),
+	Gid = s_game_server:find_gameid(PlayerId),
+	PukeList = parse_pukes(binary_to_list(Pukes)),
+	Res = s_player:call_my_turn(Pid, Gid, PlayerId, PukeList),
+	{send_pukes, Res};
+txt_cmd(<<"RECEIVE ", PlayerId:36/binary>>) ->
+	{ok, Pid} = s_account:find_pid(PlayerId),
+	Gid = s_game_server:find_gameid(PlayerId),
+	{ok, Pukes} = s_player:call_other_turn(Pid, Gid),
+	io:format("package protocal txt cmd receive ~p~n",[Pukes]),
+	{do_receive, Pukes}.
 
 
-package({first_init,{Senty,Pukes}}) ->
+package({first_init,{Senty,Pukes,Seq}}) ->
 	[P1,P2,P3] = Senty,
+	Pos2 = farmer_seq(P2, Seq),
+	Pos3 = farmer_seq(P3, Seq),
 	Pukes1 = to_list(Pukes,[]),
 	Pukes2 = order_by_size(Pukes1, []), 
-	<<"INIT_RES ", P1/binary, P2/binary, P3/binary, Pukes2/binary>>.
+	<<"INIT_RES ", P1/binary, P2/binary, Pos2/binary, P3/binary, Pos3/binary, Pukes2/binary>>;
+package({send_pukes, Res}) ->
+	Res1 = list_to_binary(atom_to_list(Res)),
+	<<"SEND_PUKES ", Res1/binary>>;
+package({do_receive, failed}) ->
+	<<"RECEIVE failed">>;
+package({do_receive, Pukes}) ->
+	io:format("package protocal do_receive ~p~n",[Pukes]),
+	Pukes1 = order_by_size(Pukes,[]),
+	<<"RECEIVE ",Pukes1/binary>>.
 
 package(match, {P1,P2}) ->
 	<<"MATCH ", P1/binary, P2/binary>>.
@@ -82,3 +105,16 @@ add_delimiter([A|Rest],N,Acc) ->
 		false ->
 			add_delimiter(Rest,N+1,[A++","|Acc])
 	end.
+
+farmer_seq(_, []) ->
+	error;
+farmer_seq(A,[{B,Pos}|Rest1]) ->
+	case A == B of
+		true ->
+			list_to_binary(integer_to_list(Pos));
+		false ->
+			farmer_seq(A, Rest1)
+	end.
+
+parse_pukes(Pukes) ->
+	string:tokens(Pukes, " ").

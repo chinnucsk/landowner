@@ -10,63 +10,86 @@
 		other_turn1/3
 		]).
 
+-export([
+		call_my_turn/4,
+		call_other_turn/2
+		]).
+
 -include("landowner.hrl").
 
-% @doc Starts unsupervised c4_player process
-start(Args) ->
-	gen_fsm:start(?MODULE, Args, []).
+-define(TIMEOUT, infinity).
 
-% @doc Starts c4_player process supervised by and linked to current process
+start(Args) ->
+	gen_fsm:start(?MODULE, Args, [{timeout,?TIMEOUT}]).
+
 start_link(Args) ->
-	gen_fsm:start_link(?MODULE, Args, []).
+	gen_fsm:start_link(?MODULE, Args, [{timeout,?TIMEOUT}]).
 
 first_init(Pid, GameId,PlayerId) ->
 	Players = s_game_server:find_playerid(GameId),
 	gen_fsm:sync_send_event(Pid, {init,GameId, Players,PlayerId}).
 
-% @doc Initializes state machine to the idle state
+call_my_turn(Pid, GameId, PlayerId, Pukes) ->
+	gen_fsm:sync_send_event(Pid, {send_pukes, GameId, PlayerId, Pukes}).
+
+call_other_turn(Pid, GameId) ->
+	gen_fsm:sync_send_event(Pid, {other_turn, GameId}, infinity).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% internal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 init([ParentId, PlayerId]) ->
 	?LOG("Starting attached to caller ~w", [ParentId]),
 	monitor(process, ParentId),
 	{ok, do_first_init, #playerinfo{parent=ParentId, playerid=PlayerId}}.
 
 do_first_init({init, GameId, Players,PlayerId}, _From, State) ->
-	{ok, Puke, Senty} = s_game:first_init(GameId, Players,PlayerId),
+	{ok, Puke, Senty, Seq} = s_game:first_init(GameId, Players,PlayerId),
 	S = proplists:get_value(PlayerId, Senty),
-	Next = is_farmer(S,GameId,PlayerId),
+%	Next = is_farmer(S,GameId,PlayerId),
 	Puke1 = get_more_pukes(Puke, S, GameId, PlayerId),
 	Senty1 = is_landowner(Senty,[],[]),
-	{reply, {ok,{Senty1,Puke1}}, Next, State}.
+	{reply, {ok,{Senty1,Puke1,Seq}}, my_turn, State}.
 
-my_turn(_Event, _From, State) ->
-	{nexstate,other_turn,State}.
+my_turn({send_pukes, GameId, PlayerId, Pukes}, _From, State) ->
+	ok = s_game:set_send_pukes(GameId, Pukes, PlayerId),
+	{reply, ok, my_turn, State}.
 
-other_turn(_Event, _From, State) ->
-	{nexstate,other_turn1,State}.
+other_turn({other_turn, GameId}, _From, State) ->
+	{ok,Pukes} = s_game:get_other_turn_pukes(GameId),
+	Next = case Pukes of
+				failed ->
+					other_turn;
+				_ ->
+					other_turn1
+		   end,
+	{reply, {ok, Pukes},Next,State}.
 
-other_turn1(_Event, _From, State) ->
-	{nexstate,my_turn,State}.
+other_turn1({other_turn, GameId}, _From, State) ->
+	{ok,Pukes} = s_game:get_other_turn_pukes(GameId),
+	Next = case Pukes of
+				failed ->
+					other_turn;
+				_ ->
+					other_turn1
+		   end,
+	{reply,{ok,Pukes},Next,State}.
 
 handle_event(Event, StateName, Data) ->
 	?LOG("Unexpected event in state ~w : ~w ~w", [StateName, Event, Data]),
 	{ok, StateName, Data}.
 
-% @doc Handles player disconnect, game quit and get state requests.
-% Generic callback for synchronous events for all states.
 handle_sync_event(_Event, _From, State, Data) ->
 	{next_state, State, Data}.
 
-% @doc Handles death of our caller process (user disconnection). 
-% FSM miscellaneous event handling callback.
 handle_info(Msg, StateName, Data) ->
 	?LOG("Unexpected event ~w in state ~w : ~w", [Msg, StateName, Data]),
 	{next_state, StateName, Data}.
 
-% @doc Code hot swapping callback (does nothing now).
 code_change(_OldVsn, StateName, Data, _Extra) ->
 	{ok, StateName, Data}.
 
-% @doc No real cleanup when player process dies.
 terminate(_Reason, _StateName, _State) ->
 	ok.
 

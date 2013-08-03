@@ -13,6 +13,8 @@
 
 -record(state, {player_pid=none :: node|pid()}).
 
+-define(TIMEOUT,infinity).
+
 %% --------------------------------------------------------------------------
 
 init({_Any, http}, _Req, []) ->
@@ -28,7 +30,7 @@ terminate(_Reason, _Req, _State) ->
 
 websocket_init(_Any, Req, []) ->
 	?LOG("init over ~w~n",[self()]),
-    {ok, Req, #state{player_pid=none}}.
+    {ok, Req, #state{player_pid=none},?TIMEOUT}.
 
 websocket_handle({text, <<"CONNECT">>}, Req, #state{player_pid=none}=State) ->
 	?LOG("process connect message ~n", []),
@@ -61,6 +63,10 @@ reply(Msg, Req, State) ->
     ?LOG("Sending message ~s~n", [Msg]),
     {reply, {text, Msg}, Req, State}.
 
+websocket_info({send_pukes, Data}, Req, State) ->
+	?LOG("websocket_info ~p~n", [Data]),
+	Res = protocol_package:package({do_receive, Data}),
+	reply(Res, Req, State);
 websocket_info(shutdown, Req, State) ->
 	?LOG("shutdown ~n",[]),
     {shutdown, Req, State}.
@@ -68,6 +74,7 @@ websocket_info(shutdown, Req, State) ->
 websocket_terminate(Reason, _Req, _State) ->
 	?LOG("websocket terminate ~p~n",[Reason]),
     ok.
+
 remove_self([],_,Acc) ->
 	lists:reverse(Acc);
 remove_self([A|Rest],PlayerId,Acc) when A =/= PlayerId ->
