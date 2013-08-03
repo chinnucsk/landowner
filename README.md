@@ -31,6 +31,7 @@ Getting Started
 
 * make && ./start.sh
 * cd /index/view && open game.html && click connect
+* click the puke you will send and click enter
 
 TODO
 --------
