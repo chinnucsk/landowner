@@ -9,6 +9,14 @@ The server develop use cowboy websocket, it can handle multiple players requests
 
 The client develop on web using js, The client send requests to the server and get corresponding user info and datas info, the js handle these datas, for exampole show photos, pukes, id .
 
+Instrustion
+-------
+The module s_game_server s_account are the gen_server for creating and saving new game and connect new players.
+
+The module s_player ,s_game are used for the detailed player and game informations.
+
+The index directory contains css ,js, pic, view.
+
 Goals
 --------
 
