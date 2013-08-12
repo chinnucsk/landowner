@@ -1,7 +1,21 @@
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
 -module(s_player).
+-author('lucas@yun.io').
 -behaviour(gen_fsm).
-% FSM callback exports
--export([start/1,start_link/1,init/1, first_init/3, handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
+
+%% FSM callback exports
+-export([start/1,
+		start_link/1,
+		init/1, 
+		first_init/3, 
+		handle_event/3, 
+		handle_sync_event/4, 
+		handle_info/3, 
+		terminate/3, 
+		code_change/4
+		]).
 
 -export([
 		do_first_init/3,
@@ -19,19 +33,26 @@
 
 -define(TIMEOUT, infinity).
 
+%% @doc start Start the game server.
+-spec start(list()) -> {ok, pid()} | ignore | {error, binary()}.
 start(Args) ->
 	gen_fsm:start(?MODULE, Args, [{timeout,?TIMEOUT}]).
 
+%% @doc start_link start the game server.
+-spec start_link(list()) -> {ok, pid()} | ignore | {error, binary()}.
 start_link(Args) ->
 	gen_fsm:start_link(?MODULE, Args, [{timeout,?TIMEOUT}]).
 
+%% @doc initialization a player.
 first_init(Pid, GameId,PlayerId) ->
 	Players = s_game_server:find_playerid(GameId),
 	gen_fsm:sync_send_event(Pid, {init,GameId, Players,PlayerId}).
 
+%% @doc Fsm my turn to send pukes.
 call_my_turn(Pid, GameId, PlayerId, Pukes) ->
 	gen_fsm:sync_send_event(Pid, {send_pukes, GameId, PlayerId, Pukes}).
 
+%% @doc Fsm other trun to get other player pukes.
 call_other_turn(Pid, GameId) ->
 	gen_fsm:sync_send_event(Pid, {other_turn, GameId}, infinity).
 
@@ -93,7 +114,7 @@ code_change(_OldVsn, StateName, Data, _Extra) ->
 terminate(_Reason, _StateName, _State) ->
 	ok.
 
-
+%% @doc get the status of the player.
 get_next(0) ->
 	my_turn;
 get_next(1) ->
@@ -103,6 +124,7 @@ get_next(2) ->
 get_next(_) ->
 	?LOG1("Get Next Error ~n").
 
+%% @doc If the senty is landowner will get more pukes.
 get_more_pukes(Puke, S, _Gid, _PlayerId) when S  == <<"farmer">> ->
 	Puke;
 get_more_pukes(_Puke, S, Gid, PlayerId) when S  == <<"landowner">> ->
@@ -111,6 +133,7 @@ get_more_pukes(_Puke, S, Gid, PlayerId) when S  == <<"landowner">> ->
 get_more_pukes(_, _, _, _) ->
 	?LOG1("Get More Pukes errors ~n").
 
+%% @doc get the status.
 is_farmer(<<"farmer">>, GameId, PlayerId) ->
 	{ok,Seq} = s_game:get_farmer_seq(GameId),
 	Seq1 = proplists:get_value(PlayerId,Seq),
@@ -120,6 +143,7 @@ is_farmer(<<"landowner">>, _, _) ->
 is_farmer(_,_,_) ->
 	?LOG1("Is Farmer error~n").
 
+%%@doc return list without landowner.
 is_landowner([],Acc1,Acc2) ->
 	lists:append(Acc1,Acc2);
 is_landowner([{PlayerId,<<"farmer">>}|Rest],Acc1,Acc2) ->

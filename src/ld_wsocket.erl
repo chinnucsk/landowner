@@ -1,4 +1,8 @@
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
 -module(ld_wsocket).
+-author('lucas@yun.io').
 -behaviour(cowboy_http_handler).
 -behaviour(cowboy_websocket_handler).
 
@@ -15,23 +19,29 @@
 
 -define(TIMEOUT,infinity).
 
-%% --------------------------------------------------------------------------
+%%% --------------------------------------------------------------------------
 
+%% @doc Upgrade wsocket failed,init function.
 init({_Any, http}, _Req, []) ->
     {upgrade, protocol, cowboy_websocket}.
 
+%% @doc Upgrade wsocket failed,handle function.
 handle(Req, State) ->
     {ok, Req, State}.
 
+%% @doc Upgrade wsocket failed,terminate function.
 terminate(_Reason, _Req, _State) ->
     ok.
 
-%% --------------------------------------------------------------------------
+%%% --------------------------------------------------------------------------
 
+%% @doc Upgrade wsocket success,init function.
 websocket_init(_Any, Req, []) ->
 	?LOG("init over ~w~n",[self()]),
     {ok, Req, #state{player_pid=none},?TIMEOUT}.
 
+%% @doc Upgrade wsocket success,init function.
+%% @doc This function receive wscoket message,and handle the message, finally return the result to the client.
 websocket_handle({text, <<"CONNECT">>}, Req, #state{player_pid=none}=State) ->
 	?LOG("process connect message ~n", []),
 	case s_account:new_player() of
@@ -63,6 +73,8 @@ reply(Msg, Req, State) ->
     ?LOG("Sending message ~s~n", [Msg]),
     {reply, {text, Msg}, Req, State}.
 
+%% @doc Upgrade wsocket success,info function.
+%% @doc This function receive wscoket notice infos,and handle the message, finally return the result to the client.
 websocket_info({send_pukes, Data}, Req, State) ->
 	?LOG("websocket_info ~p~n", [Data]),
 	Res = protocol_package:package({do_receive, Data}),
@@ -71,10 +83,18 @@ websocket_info(shutdown, Req, State) ->
 	?LOG("shutdown ~n",[]),
     {shutdown, Req, State}.
 
+%% @doc Upgrade wsocket success,terminate function.
+%% @doc This function terminate the connections.
 websocket_terminate(Reason, _Req, _State) ->
 	?LOG("websocket terminate ~p~n",[Reason]),
     ok.
 
+%%% -----------------------------------------------------------------------
+%%% private function
+%%% -----------------------------------------------------------------------
+
+%% @doc remove_self is used to remove the ID self from the given player list. 
+-spec remove_self(list(),list(),list()) -> list().
 remove_self([],_,Acc) ->
 	lists:reverse(Acc);
 remove_self([A|Rest],PlayerId,Acc) when A =/= PlayerId ->

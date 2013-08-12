@@ -1,4 +1,8 @@
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
 -module(s_account).
+-author('lucas@yun.io').
 -behaviour(gen_server).
 
 -export([
@@ -23,19 +27,24 @@
 -include("landowner.hrl").
 
 -record(state, {parent}).
-
+%% @doc start_link start the game server.
+-spec start_link() -> {ok, pid()} | ignore | {error, binary()}.
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, self(), []).
 
+%% @doc Create a new player.
 new_player() ->
 	gen_server:call(?MODULE, new_player).
 
+%% @doc Register the player to the server.
 do_register(Wid, PlayerId) ->
 	gen_server:call(?MODULE, {register, Wid, PlayerId}).
 
+%% @doc Find the pid accorrding playerid.
 find_pid(Pid) ->
 	gen_server:call(?MODULE, {find_pid, Pid}).
 
+%% @doc Find the wsocket pid accorrding the gameid.
 find_wpid(Pid) ->
 	gen_server:call(?MODULE, {find_wpid, Pid}).
 
@@ -116,7 +125,7 @@ handle_cast(_, State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-
+%% @doc create a new player.
 new_player({ParentPid, _Tag} = _From, State) ->
 	PlayerId = list_to_binary(uuid:uuid_to_string(uuid:get_v4())),
 	{ok, Pid} = s_player:start_link([ParentPid,PlayerId]),
@@ -127,10 +136,12 @@ new_player({ParentPid, _Tag} = _From, State) ->
 	ets:insert(landowner_player_wsocket_tbl, {PlayerId, ParentPid}),
 	{reply, {ok, Pid, PlayerId}, State}.
 
+%% @doc register a new player.
 do_register_player(Value) ->
 	ets:insert(landowner_player_notify_tbl, Value),
 	?LOG("start new player ~w~n",[ets:info(landowner_player_notiry_tbl,size)]).
 
+%% @doc logout a player.
 do_player_quit(Pid) ->
     case ets:lookup(landowner_player_pid_tbl, Pid) of
         [{Pid, PlayerId}] ->
@@ -144,6 +155,7 @@ unexpected(Event, State) ->
 	?LOG("unexpected event ~w :~w",[Event, State]),
 	{noreply, State}.
 
+%% @doc get the last 3 players from the player server table.
 check_notify(0, Acc) ->
 	lists:reverse(Acc);
 check_notify(N,Acc) ->
@@ -152,6 +164,7 @@ check_notify(N,Acc) ->
 	true = ets:delete(landowner_player_notify_tbl, Key1),
 	check_notify(N-1,[A|Acc]).
 
+%% @doc notity the result to the pid.
 notify([{P1,W1},{P2,W2},{P3,W3}]) ->
 	W1 ! {match, P1, P2, P3},
 	W2 ! {match, P1, P2, P3},

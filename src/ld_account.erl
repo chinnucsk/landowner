@@ -1,4 +1,9 @@
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
 -module(ld_account).
+
+-author('lucas@yun.io').
 
 -export([
 		init/3,
@@ -10,9 +15,11 @@
 
 -record(state,{}).
 
+%% @doc handler init function.
 init({_, http}, Req, _HandlerOpts) ->
 	{ok, Req, #state{}}.
 
+%% @doc handler handle function.
 handle(Req, _State) ->
 	Body = "<html>
 			<head></head>
@@ -25,5 +32,6 @@ handle(Req, _State) ->
 			</html>",
 	cowboy_req:reply(200,[],Body,Req).
 
+%% @doc handler terminate function.
 terminate(_Reason, _Req, _State) ->
 	ok.

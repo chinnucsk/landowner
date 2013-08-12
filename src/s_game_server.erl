@@ -1,4 +1,8 @@
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
 -module(s_game_server).
+-author('lucas@yun.io').
 -behaviour(gen_server).
 
 -export([
@@ -23,15 +27,20 @@
 
 -record(state, {parent}).
 
+%% @doc start_link start the game server.
+-spec start_link() -> {ok, pid()} | ignore | {error, binary()}.
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, self(), []).
 
+%% @doc new_game start a new game.
 new_game([{P1,_},{P2,_},{P3,_}]) ->
 	gen_server:call(?MODULE, {new_game,P1,P2,P3}).
 
+%% @doc find_gameid find the gameid of the playerId.
 find_gameid(PlayerId) ->
 	gen_server:call(?MODULE, {find_gameid,PlayerId}).
 
+%% @doc find the playerId in the some gameid.
 find_playerid(Gid) ->
 	gen_server:call(?MODULE, {find_playerid,Gid}).
 
@@ -50,7 +59,7 @@ terminate(_Reason, _State) ->
 	ets:delete(landowner_game_pid_tbl),
 	ok.
 
-handle_call({new_game,P1,P2,P3}, From, State) ->
+handle_call({new_game,P1,P2,P3}, _From, State) ->
 	?LOG("new game ~n", []),
 	{ok,Gid} = s_game:start_link(),
 	ets:insert(landowner_game_id_tbl, {Gid, {P1,P2,P3}}),
@@ -58,10 +67,10 @@ handle_call({new_game,P1,P2,P3}, From, State) ->
 	ets:insert(landowner_game_pid_tbl, {P2, Gid}),
 	ets:insert(landowner_game_pid_tbl, {P3, Gid}),
 	{reply, ok, State};
-handle_call({find_gameid, PlayerId}, From ,State) ->
+handle_call({find_gameid, PlayerId}, _From ,State) ->
 	[{_,Gid}] = ets:lookup(landowner_game_pid_tbl, PlayerId),
 	{reply, Gid, State};
-handle_call({find_playerid, Gid}, From ,State) ->
+handle_call({find_playerid, Gid}, _From ,State) ->
 	[{_,Players}] = ets:lookup(landowner_game_id_tbl, Gid),
 	{reply, Players, State}.
 
@@ -79,7 +88,7 @@ handle_info({'EXIT', Pid, _Reason}, State) when is_pid(Pid) ->
 			ets:delete(landowner_game_pid_tbl, P3),
 			{noreply, State}
 	end;
-handle_info({'DOWN', _Ref, process, Pid, _Reason}, State) ->
+handle_info({'DOWN', _Ref, process, _Pid, _Reason}, State) ->
     {noreply, State};
 handle_info(Event,  State) ->
     unexpected(Event, State).
@@ -90,10 +99,7 @@ handle_cast(_, State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-
-
 unexpected(Event, State) ->
 	?LOG("unexpected event ~w :~w",[Event, State]),
 	{noreply, State}.
-
 

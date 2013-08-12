@@ -1,4 +1,11 @@
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
+%%%
+%%% @doc Convenience API to get configure and start cowboy server.
 -module(landowner_app).
+
+-author('lucas@yun.io').
 
 -behaviour(application).
 
@@ -19,6 +26,9 @@ start(_StartType, _StartArgs) ->
 stop(_State) ->
     ok.
 
+%%% ------------------------------------------------------------------
+%%% private functions
+%%% ------------------------------------------------------------------
 setup_cowboy() ->
 	NbAcceptors = get_env(acceptors, 100),
 	{ok,_} = cowboy:start_http(?APP, NbAcceptors, trans_opts(), proto_opts()).

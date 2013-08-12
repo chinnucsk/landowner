@@ -1,4 +1,8 @@
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
 -module(s_game).
+-author('lucas@yun.io').
 -behaviour(gen_server).
 
 -export([
@@ -27,30 +31,44 @@
 
 -include("landowner.hrl").
 
+%%% ---------------------------------------------------------------------
+%%% Public Api
+%%% ---------------------------------------------------------------------
+
+%% @doc start_link start a new game pid.
+-spec start_link() -> {ok, pid()} | ignore | {error, binary()}.
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], [{timeout,?TIMEOUT}]).
 
+%% @doc first_init The first init about the a new game.
 first_init(Pid, Players, PlayerId) ->
 	gen_server:call(Pid, {first_init,Players,PlayerId}).
 
+%% @doc add_landowner_puke If is landowner,will add more three pukes.
 add_landowner_puke(Pid,PlayerId) ->
 	gen_server:call(Pid, {add_landowner_puke,PlayerId}).
 
+%% @doc get_farmer_seq Get the sequnce of the farmer in the game.
 get_farmer_seq(Pid) ->
 	gen_server:call(Pid, get_farmer_seqs).
 
+%% @doc get_senty Get the senty.
 get_senty(Pid, PlayerId) ->
 	gen_server:call(Pid, {get_senty, PlayerId}).
 
+%% @doc get_total Get the total number of the pukes in the game.
 get_total(Pid) ->
 	gen_server:call(Pid, get_total).
 
+%% @doc get_rest Get the rest pukes in the game.
 get_rest(Pid) ->
 	gen_server:call(Pid, get_rest).
 
+%% @doc set_sen_pukes Sent pukes to the corresponding players.
 set_send_pukes(Pid,Pukes,PlayerId) ->
 	gen_server:call(Pid, {send_pukes, Pukes, PlayerId}).
 
+%% @doc get_other_turn_pukes If other turn,will get the pukes sent by other player in the game.
 get_other_turn_pukes(Pid) ->
 	gen_server:call(Pid, get_pukes).
 
@@ -132,7 +150,8 @@ unexpected(Event, State) ->
 	?LOG("unexpected event ~w :~w",[Event, State]),
 	{noreply, State}.
 
-
+%% @doc get_puke This function use random algorithm to allot pukers to players.
+-spec get_puke(list(),list(),list(),list(),#gameinfo{}) -> {list(),#gameinfo{}}.
 get_puke(P1,P2,P3,PlayerId,#gameinfo{total=Total,player_p=PlayerP,total_num=TotalNum} = State) ->
 	case PlayerP of
 		[] ->
@@ -145,7 +164,8 @@ get_puke(P1,P2,P3,PlayerId,#gameinfo{total=Total,player_p=PlayerP,total_num=Tota
 			Pukes = proplists:get_value(PlayerId,PlayerP),
 			{Pukes, State}
 	end.
-		
+
+%% @doc random_pukes Random pukes .
 random_pukes(Total,Num,C1,C2,C3, 1) ->
 	[Total, Num, C1, C2, C3];
 random_pukes(Total, TotalNum, C1, C2, C3, N) ->
@@ -161,6 +181,8 @@ do_random_pukes(Total,TotalNum) ->
 	Total1 = lists:delete(V1,Total),
 	{V1,Total1, TotalNum-1}.
 
+%% @doc get_senty .This function to get senty in this game.
+-spec get_senty(list(),list(),list(),#gameinfo{}) -> {list(),#gameinfo{}}.
 get_senty(P1,P2,P3, #gameinfo{senty=Senty} = State) ->
 	case Senty of
 		[] ->
@@ -175,12 +197,16 @@ get_senty(P1,P2,P3, #gameinfo{senty=Senty} = State) ->
 			{Senty,State}
 	end.
 
+%% @doc set_farmer_seq Set the sequence of the farmers in this game.
+-spec set_farmer_seq(list(),#gameinfo{}) ->#gameinfo{}.
 set_farmer_seq(Senty,State) ->
 	FList = get_farmer(Senty,[]),
 	{{P1,_}, [{P2,_}], _} = do_random_pukes(FList,2),
 	List = [{P1,1},{P2,2}],
 	State#gameinfo{farmer_seq=List}.
 
+%% @doc get_farmer Get farmers in this game.
+-spec get_farmer(list(),list()) -> list().
 get_farmer([],Acc) ->
 	lists:reverse(Acc);
 get_farmer([{_,<<"farmer">>} = Player|Rest],Acc) ->
@@ -190,17 +216,22 @@ get_farmer([{_,<<"landowner">>}|Rest],Acc) ->
 get_farmer([{_,_}|_Rest],_Acc) ->
 	?LOG1("Get Farmer error ~n").
 
+%% @doc decrease_total_pukes Decrease the pukes from total.
+-spec decrease_total_pukes(list(), list(), integer()) ->
+	{list(),integer()}.
 decrease_total_pukes(Total, [], N) ->
 	{Total, N};
 decrease_total_pukes(Total, [A|Rest], N) ->
 	Total1 = lists:delete(list_to_atom(A),Total),
 	decrease_total_pukes(Total1, Rest, N+1).
 
+%% @doc atom_pukes transfrom the pukes from lists to atom.
 atom_pukes([], Acc) ->
 	lists:reverse(Acc);
 atom_pukes([A|Rest], Acc) ->
 	atom_pukes(Rest, [list_to_atom(A)|Acc]).
 
+%% @doc get_other_player_wsocket Get the wsocket pid in this game.
 get_other_player_wsocket(PlayerId,{Player1,Player2,Player3}) ->
 	[P1,P2] = get_other_player(PlayerId,[Player1,Player2,Player3],[]),
 	io:format("get other player wsocket ~p~p~p~p~p~p",[PlayerId, Player1,Player2,Player3,P1,P2]),
@@ -208,6 +239,7 @@ get_other_player_wsocket(PlayerId,{Player1,Player2,Player3}) ->
 	{ok,PS2} = s_account:find_wpid(P2),
 	{PS1,PS2}.
 
+%% @doc get_other_player Get the wsocket player in this game.
 get_other_player(_PlayerId, [], Acc) ->
 	lists:reverse(Acc);
 get_other_player(PlayerId, [A|Rest], Acc) when PlayerId == A ->

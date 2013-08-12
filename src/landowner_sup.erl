@@ -1,5 +1,11 @@
-
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
+%%%
+%%% @doc API to start supervesion.
 -module(landowner_sup).
+
+-author('lucas@yun.io').
 
 -behaviour(supervisor).
 

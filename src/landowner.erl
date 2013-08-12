@@ -1,4 +1,11 @@
+%%% Copyright(c)
+%%%
+%%% Author lucas@yun.io
+%%%
+%%% @doc Convenience API to start landowner application. 
 -module(landowner).
+
+-author('lucas@yun.io').
 
 -export([start/0]).
 
